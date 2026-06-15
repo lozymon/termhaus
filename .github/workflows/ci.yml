@@ -196,5 +196,18 @@ jobs:
 
       # Full release build + NSIS installer (picks up tauri.windows.conf.json automatically;
       # bundles the WebView2 bootstrapper). No apt step — Windows runners ship the toolchain.
+      # This is also how we get a runnable Windows build: cross-linking from Linux is blocked
+      # by the mingw BFD linker ("export ordinal too large" on the wry/windows crates), so the
+      # MSVC toolchain on this runner is the supported path. The artifact below is downloadable
+      # from the Actions run — install it on any Windows box without a local build toolchain.
       - name: Build (NSIS bundle)
         run: npm run tauri build -- --bundles nsis
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: termhaus-windows-nsis
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/termhaus.exe
+          if-no-files-found: error
