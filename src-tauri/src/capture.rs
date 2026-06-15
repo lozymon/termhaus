@@ -9,12 +9,21 @@
 // a benign "cancelled" error; if none of the tools is installed we return a "no screenshot
 // tool" error the frontend turns into an install hint.
 
+// The shell-out path is Unix-only (flameshot/gnome-screenshot/grim are Linux tools). On Windows
+// the command is gated to a clean "not yet supported" error for the first release (PLAN M7.6 —
+// the cheap acceptable v1); a native path lands with M9's xcap-based capture, which supersedes
+// this whole file. The imports below are only used by the Unix impl.
+#[cfg(unix)]
 use std::io::ErrorKind;
+#[cfg(unix)]
 use std::path::PathBuf;
+#[cfg(unix)]
 use std::process::Command;
+#[cfg(unix)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// A unique temp path like `/tmp/termhaus-snap-<nanos>.png`.
+#[cfg(unix)]
 fn snap_path() -> PathBuf {
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -24,6 +33,7 @@ fn snap_path() -> PathBuf {
 }
 
 /// Capture a user-selected screen region to a PNG; returns its absolute path.
+#[cfg(unix)]
 #[tauri::command]
 pub fn capture_region() -> Result<String, String> {
     let path = snap_path();
@@ -99,4 +109,13 @@ pub fn capture_region() -> Result<String, String> {
     // The marker substring "no screenshot tool" is matched by the frontend (Terminal.tsx) to
     // show an install hint in the pane — keep it stable if you reword this.
     Err("no screenshot tool found — install flameshot, gnome-screenshot, or grim+slurp".into())
+}
+
+/// Windows: region capture isn't wired up yet (PLAN M7.6 — gated off for the first Windows
+/// release; the native path arrives with M9's xcap capture). The command stays registered so the
+/// frontend's `Ctrl+Shift+S` flow gets a clean error instead of a missing-command failure.
+#[cfg(windows)]
+#[tauri::command]
+pub fn capture_region() -> Result<String, String> {
+    Err("region capture isn't available on Windows yet".into())
 }

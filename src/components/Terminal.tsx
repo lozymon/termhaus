@@ -62,11 +62,12 @@ function prettyCwd(dir: string): string {
   return dir;
 }
 
-/** Last segment of a path — the pane's folder-derived display name (e.g. "termhaus"). */
+/** Last segment of a path — the pane's folder-derived display name (e.g. "termhaus"). Accepts
+ * both `/` and `\` so a Windows cwd (`C:\Users\me\proj`) resolves to its final segment. */
 function basename(dir: string): string {
-  const p = dir.replace(/\/+$/, "");
-  const i = p.lastIndexOf("/");
-  return i >= 0 ? p.slice(i + 1) || "/" : p;
+  const p = dir.replace(/[\\/]+$/, "");
+  const i = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+  return i >= 0 ? p.slice(i + 1) || p : p;
 }
 
 export default function TerminalPane(props: { paneId: PaneId; ws: WorkspaceUI }) {

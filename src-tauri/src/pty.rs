@@ -45,6 +45,8 @@ struct Pane {
     killer: Box<dyn ChildKiller + Send + Sync>,
     // The shell child's OS pid, so the Source Control panel can read its live cwd from
     // `/proc/<pid>/cwd` (see `cwd` below). `None` if the platform didn't report one.
+    // Only read on Unix (the `/proc` cwd lookup is Linux-only); still populated everywhere.
+    #[cfg_attr(windows, allow(dead_code))]
     pid: Option<u32>,
     // The webview Channels the flusher/reaper write to, behind a mutex so `retarget` can swap
     // them to a *different* window without disturbing the running PTY — the basis of tearing a

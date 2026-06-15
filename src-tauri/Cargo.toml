@@ -18,7 +18,8 @@ name = "termhaus_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 # The inter-pane control CLI (ADR-0007), built beside the app binary so it lands on the
-# child PATH we inject into each pane. std + serde_json only — no extra deps.
+# child PATH we inject into each pane. std + serde_json only on Linux; on Windows it also
+# pulls `windows-sys` (below) via the shared `control_transport` for the named-pipe bus.
 [[bin]]
 name = "th"
 path = "src/bin/th.rs"
@@ -37,4 +38,17 @@ portable-pty = "0.8"
 base64 = "0.22"
 tauri-plugin-clipboard-manager = "2.3.2"
 tauri-plugin-notification = "2"
+
+# Windows-only: the inter-pane control bus (M7.5) uses named pipes via raw Win32 FFI in
+# `control_transport.rs`. Target-gated, so the Linux build pulls nothing new and stays
+# byte-identical. Shared by the app lib and the `th` / `th-mcp` bins (via `#[path]`).
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+    "Win32_System_IO",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+] }
 

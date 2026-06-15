@@ -18,9 +18,10 @@ import { allocName, balancedBands } from "../lib/grid";
 const PRESETS = [1, 2, 4, 6, 8, 10, 12];
 const MAX_PANES = 16;
 
-/** Final path segment of a folder, for the workspace name. */
+/** Final path segment of a folder, for the workspace name. Handles both `/` (Unix) and `\`
+ * (Windows) separators so Windows paths like `C:\Users\me\proj` name the workspace `proj`. */
 function basename(path: string): string {
-  const parts = path.replace(/\/+$/, "").split("/");
+  const parts = path.replace(/[\\/]+$/, "").split(/[\\/]/);
   return parts[parts.length - 1] || path;
 }
 

@@ -450,6 +450,18 @@ fn group_has_command(group: &Value, cmd: &str) -> bool {
         })
 }
 
+/// The user's home dir for locating `~/.claude/settings.json`: `$HOME` on Unix, `%USERPROFILE%`
+/// on Windows (mirrors `pty::home_dir`). Claude Code uses `~/.claude` on every platform.
+#[cfg(unix)]
+fn home_dir() -> Option<String> {
+    env::var("HOME").ok()
+}
+
+#[cfg(windows)]
+fn home_dir() -> Option<String> {
+    env::var("USERPROFILE").ok()
+}
+
 fn run_hooks(args: &[String]) -> Result<String, String> {
     let mut install = false;
     let mut scope_user = false;
@@ -474,7 +486,7 @@ fn run_hooks(args: &[String]) -> Result<String, String> {
     }
 
     let path = if scope_user {
-        let home = env::var("HOME").map_err(|_| "HOME not set".to_string())?;
+        let home = home_dir().ok_or_else(|| "home directory not set".to_string())?;
         PathBuf::from(home).join(".claude/settings.json")
     } else {
         let base = env::var("CLAUDE_PROJECT_DIR")

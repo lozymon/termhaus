@@ -1,12 +1,16 @@
 name: CI
 
-# Lint, typecheck, test, and build Termhaus on Linux — the only supported target
-# (the stack is locked to WebKitGTK; macOS/Windows are out of scope for now).
+# Lint, typecheck, test, and build Termhaus. Linux is the primary target (the runtime is
+# WebKitGTK); Windows support (PLAN M7) is brought up behind `#[cfg(windows)]` and guarded here
+# so it can't silently rot between the Windows-VM verification passes (M7.4).
 #
-# Three independent jobs run in parallel for faster feedback:
-#   • frontend  — typecheck + unit tests (node only; no apt/Rust, so it's quick)
-#   • rust-lint — rustfmt + clippy
-#   • build     — full release build + .deb bundle
+# Jobs run in parallel for faster feedback:
+#   • frontend      — typecheck + unit tests (node only; no apt/Rust, so it's quick)
+#   • rust-lint     — rustfmt + clippy
+#   • build         — full release build + .deb bundle
+#   • windows-check — cross-compile `cargo check` for the Windows target from Linux (the keystone:
+#                     catches `#[cfg(windows)]` code that doesn't compile, no Windows runner needed)
+#   • windows-build — full NSIS bundle on a real windows-latest runner
 # rust-lint and build each compile the Rust tree (clippy in the dev profile, the
 # bundle in release — they don't share artifacts anyway), so running them as
 # separate jobs costs a little extra runner time but roughly halves wall-clock.
@@ -123,3 +127,74 @@ jobs:
       # beforeBuildCommand). Skips AppImage to avoid its build-time downloads.
       - name: Build (.deb bundle)
         run: npm run tauri build -- --bundles deb
+
+  windows-check:
+    name: Windows cross-check (cargo check from Linux)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+
+      # The Windows target links nothing here (`cargo check` stops before linking), so no
+      # WebView2/WebKit libs are needed — only mingw's `windres`, which tauri's build script
+      # runs to embed the Windows resource (icon/version) for the target.
+      - name: Install mingw toolchain (windres + its gcc preprocessor)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Rust (Windows target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: windows-check
+
+      # generate_context! (in the lib) embeds the frontend dist, so it must exist before the check.
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Build frontend (dist for generate_context!)
+        run: npm run build
+
+      - name: Cargo check (Windows target)
+        working-directory: src-tauri
+        run: cargo check --target x86_64-pc-windows-gnu --all-targets
+
+  windows-build:
+    name: Windows build (NSIS bundle)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: windows-build
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # Full release build + NSIS installer (picks up tauri.windows.conf.json automatically;
+      # bundles the WebView2 bootstrapper). No apt step — Windows runners ship the toolchain.
+      - name: Build (NSIS bundle)
+        run: npm run tauri build -- --bundles nsis
