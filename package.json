@@ -1,6 +1,6 @@
 {
   "name": "termhaus",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "A Linux-first desktop control room of real terminals — a GUI terminal multiplexer for driving fleets of CLI agents, with broadcast input.",
   "type": "module",
   "scripts": {
