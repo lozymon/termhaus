@@ -46,10 +46,10 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # clippy compiles the Tauri app, which links WebKitGTK — so it needs the dev libs.
       - name: Install Tauri system dependencies
@@ -112,7 +112,7 @@ jobs:
     # Heavyweight: only on release tags or manual dispatch (see header).
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Install Tauri system dependencies
         run: |
@@ -124,7 +124,7 @@ jobs:
             libayatana-appindicator3-dev librsvg2-dev
 
       - name: Set up Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -149,7 +149,7 @@ jobs:
       # Make the Linux build downloadable from the Actions run, mirroring the
       # Windows job — install on any Debian/Ubuntu box without a local toolchain.
       - name: Upload Linux .deb
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: termhaus-linux-deb
           path: src-tauri/target/release/bundle/deb/*.deb
@@ -160,7 +160,7 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       # The Windows target links nothing here (`cargo check` stops before linking), so no
       # WebView2/WebKit libs are needed — only mingw's `windres`, which tauri's build script
@@ -171,7 +171,7 @@ jobs:
           sudo apt-get install -y gcc-mingw-w64-x86-64
 
       - name: Set up Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -205,10 +205,10 @@ jobs:
     # Heavyweight (priciest runner): only on release tags or manual dispatch (see header).
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
@@ -235,7 +235,7 @@ jobs:
         run: npm run tauri build -- --bundles nsis
 
       - name: Upload Windows installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: termhaus-windows-nsis
           path: |
@@ -257,19 +257,19 @@ jobs:
       contents: write # create the release + upload assets (overrides the read-only default)
     steps:
       - name: Download Linux .deb
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: termhaus-linux-deb
           path: dist
 
       - name: Download Windows installer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: termhaus-windows-nsis
           path: dist
 
       - name: Publish release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/**
           generate_release_notes: true
