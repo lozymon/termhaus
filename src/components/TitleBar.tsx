@@ -2,7 +2,7 @@
 // tauri.conf.json), so this bar owns: the app icon + name, a flat row of app-action buttons,
 // a draggable region (data-tauri-drag-region), and the min/maximize/close window controls.
 //
-// Actions reuse the same entry points as the rail/keyboard: Settings/Git are passed down from
+// Actions reuse the same entry points as the rail/keyboard: Settings is passed down from
 // App; Overview and the Command Palette fire through the store / the window events App already
 // listens for. (New workspace lives in the rail header; save-as-preset in the palette — none
 // need a button here.)
@@ -15,11 +15,7 @@ import appIcon from '../assets/app-icon.png';
 
 export default function TitleBar(props: {
   onSettings: () => void;
-  onGit: () => void;
-  onDocs: () => void;
   onShortcuts: () => void;
-  gitOn: () => boolean;
-  docsOn: () => boolean;
   settingsOn: () => boolean;
   paletteOn: () => boolean;
 }) {
@@ -53,26 +49,6 @@ export default function TitleBar(props: {
             onClick={openPalette}
           >
             Palette
-          </button>
-        </Show>
-        <Show when={settings.navVisible.git}>
-          <button
-            class="tb-btn"
-            classList={{ on: props.gitOn() }}
-            title="Source control (Ctrl+Shift+G)"
-            onClick={() => props.onGit()}
-          >
-            Git
-          </button>
-        </Show>
-        <Show when={settings.navVisible.docs}>
-          <button
-            class="tb-btn"
-            classList={{ on: props.docsOn() }}
-            title="Docs reader — mark a passage → send to a pane (Ctrl+Shift+R)"
-            onClick={() => props.onDocs()}
-          >
-            Docs
           </button>
         </Show>
         <button

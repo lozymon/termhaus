@@ -23,7 +23,6 @@ import "@xterm/xterm/css/xterm.css";
 
 import { spawnPty, writePty, resizePty, killPty, cwdPty, busyPty, foregroundPty, retargetPty } from "../lib/ptyClient";
 import { detachPaneToWindow, detachedHandle, forgetDetached } from "../lib/detach";
-import { gitBranch } from "../lib/gitClient";
 import { captureRegion } from "../lib/capture";
 import { sessionLogPath } from "../lib/sessionLog";
 import { openEditorAt } from "../lib/editor";
@@ -72,13 +71,10 @@ function basename(dir: string): string {
   return i >= 0 ? p.slice(i + 1) || p : p;
 }
 
-// Per-pane metadata poll cadence (refreshLoc). The branch lookup is the costly bit — it spawns a
-// `git` subprocess — so it's throttled hard: re-run only when the cwd changes, or every
-// GIT_REFRESH_EVERY ticks to catch an in-pane `git checkout`. And pane interval starts are spread
-// across POLL_STAGGER_SLOTS so N panes don't poll /proc+git in lockstep (the burst that, with the
+// Per-pane metadata poll cadence (refreshLoc). Pane interval starts are spread across
+// POLL_STAGGER_SLOTS so N panes don't poll /proc in lockstep (the burst that, with the
 // commands previously on the UI thread, froze the app for 1-2s every cycle).
 const POLL_INTERVAL_MS = 2000;
-const GIT_REFRESH_EVERY = 5; // ~10s at a stable cwd
 const POLL_STAGGER_SLOTS = 8;
 
 export default function TerminalPane(props: { paneId: PaneId; ws: WorkspaceUI }) {
@@ -99,19 +95,14 @@ export default function TerminalPane(props: { paneId: PaneId; ws: WorkspaceUI })
   // dead pane. Gates the drop-to-shell to fire once: when *this* shell later exits (the user
   // typed `exit`), we let the pane die normally rather than looping a fresh shell forever.
   let currentIsShellDrop = false;
-  // git-branch poll throttle: the last cwd we ran `git` for, and a tick counter so the subprocess
-  // only fires on a cwd change or a slow refresh (the branch is rarely what changes).
-  let lastGitCwd: string | null = null;
-  let pollTick = 0;
   const [dead, setDead] = createSignal<number | null>(null);
   const [finding, setFinding] = createSignal(false);
   const [query, setQuery] = createSignal("");
   // Live match position from the SearchAddon: {index, count}. index is -1 when no active match.
   const [matches, setMatches] = createSignal<{ index: number; count: number }>({ index: -1, count: 0 });
   const [dragOver, setDragOver] = createSignal(false);
-  // Live shell location for the title bar: cwd (via /proc, ADR-0001's carve-out) + git branch.
+  // Live shell location for the title bar: cwd (via /proc, ADR-0001's carve-out).
   const [cwd, setCwd] = createSignal<string | null>(null);
-  const [branch, setBranch] = createSignal<string | null>(null);
   // The live foreground command in this pane (polled from /proc), or null at the prompt.
   const [foreground, setForeground] = createSignal<string | null>(null);
 
@@ -314,13 +305,12 @@ export default function TerminalPane(props: { paneId: PaneId; ws: WorkspaceUI })
     term.focus();
   }
 
-  // ---- Title-bar location (cwd + git branch) -----------------------------------------
+  // ---- Title-bar location (cwd) ------------------------------------------------------
   // Panes are opaque (ADR-0001) — we can't watch the shell's output for `cd`, so we poll
-  // /proc for the live cwd and derive the branch from it. Cheap: one /proc readlink + one
-  // `git rev-parse` per tick, only while this pane's workspace is visible.
+  // /proc for the live cwd. Cheap: one /proc readlink per tick, only while this pane's
+  // workspace is visible.
   async function refreshLoc() {
-    if (handle === null) { setCwd(null); setBranch(null); setForeground(null); setBusy(props.paneId, null); lastGitCwd = null; return; }
-    pollTick++;
+    if (handle === null) { setCwd(null); setForeground(null); setBusy(props.paneId, null); return; }
     // Busy state (running a command vs. at the prompt) — a cheap foreground-pgrp read. A
     // busy→idle transition in a pane you're not watching means a command just finished and the
     // shell is back at its prompt → raise the sticky attention border (cleared when you look).
@@ -338,13 +328,6 @@ export default function TerminalPane(props: { paneId: PaneId; ws: WorkspaceUI })
     let dir: string | null = null;
     try { dir = await cwdPty(handle); } catch { return; }
     setCwd(dir);
-    if (!dir) { setBranch(null); lastGitCwd = null; return; }
-    // Only spawn `git` when the cwd changed, or every GIT_REFRESH_EVERY ticks as a slow refresh to
-    // catch an in-pane `git checkout`. Skips the per-tick subprocess for a pane sitting still.
-    if (dir !== lastGitCwd || pollTick % GIT_REFRESH_EVERY === 0) {
-      lastGitCwd = dir;
-      try { setBranch(await gitBranch(dir)); } catch { setBranch(null); }
-    }
   }
 
   // ---- Search overlay ----------------------------------------------------------------
@@ -518,8 +501,6 @@ export default function TerminalPane(props: { paneId: PaneId; ws: WorkspaceUI })
       "open-editor": () => void openEditorAt(cwd() || spec()?.cwd || props.ws.cwd || settings.defaultCwd || ""),
       "new-workspace": () => window.dispatchEvent(new CustomEvent("termhaus:new-workspace")),
       "command-palette": () => window.dispatchEvent(new CustomEvent("termhaus:command-palette")),
-      "source-control": () => window.dispatchEvent(new CustomEvent("termhaus:source-control")),
-      "docs": () => window.dispatchEvent(new CustomEvent("termhaus:docs")),
       "settings": () => window.dispatchEvent(new CustomEvent("termhaus:settings")),
       "overview": () => toggleOverview(),
       "shortcuts": () => window.dispatchEvent(new CustomEvent("termhaus:shortcuts")),
@@ -654,14 +635,7 @@ export default function TerminalPane(props: { paneId: PaneId; ws: WorkspaceUI })
           )}
         </Show>
         <span class="pane-name">{displayName()}</span>
-        <Show
-          when={act()?.status}
-          fallback={
-            <Show when={branch()}>
-              <span class="pane-branch" title={`git branch: ${branch()}`}>⎇ {branch()}</span>
-            </Show>
-          }
-        >
+        <Show when={act()?.status}>
           {(s) => (
             <span class="pane-statuslabel" data-state={paneState()} title={`agent status: ${s()}`}>{s()}</span>
           )}

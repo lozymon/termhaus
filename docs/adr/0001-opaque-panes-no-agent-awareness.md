@@ -22,3 +22,9 @@ you've `cd`'d. This stays within the spirit of opacity — it reads the kernel's
 **not** the pane's output byte stream (which is what "opaque" protects). No output is parsed;
 nothing polls; it fires only on the panel action and falls back to the workspace folder when
 the read fails (dead child, non-Linux). Output parsing for agent-awareness remains rejected.
+
+**Update (2026-06-29):** the Source Control panel that originally motivated this carve-out was
+removed (the ADE role now lives in the companion app "loom" — see
+[ADR-0008](0008-narrow-to-terminal-loom-owns-ade.md)). The carve-out rationale above is kept as
+record, and **`pty_cwd` is retained** — it still backs the title-bar cwd display and the agent
+badge — so this narrow `/proc/<pid>/cwd` exception stands, just for those callers instead.

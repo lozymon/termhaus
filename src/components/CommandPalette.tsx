@@ -44,8 +44,6 @@ export default function CommandPalette(props: {
   onClose: () => void;
   onNewWorkspace: () => void;
   onSettings: () => void;
-  onGit: () => void;
-  onDocs: () => void;
   onShortcuts: () => void;
   onLogs: () => void;
 }) {
@@ -62,8 +60,6 @@ export default function CommandPalette(props: {
     const list: Command[] = [
       { label: "New workspace", icon: "＋", kind: "action", key: kb("new-workspace"), run: props.onNewWorkspace },
       { label: "Open settings", icon: "⚙", kind: "action", hint: "Preferences", run: props.onSettings },
-      { label: "Open source control", icon: "⎇", kind: "action", key: kb("source-control"), run: props.onGit },
-      { label: "Open docs reader", icon: "▦", kind: "action", key: kb("docs"), run: props.onDocs },
       { label: "Keyboard shortcuts cheat-sheet", icon: "⌨", kind: "action", key: kb("shortcuts"), run: props.onShortcuts },
       { label: "View session logs", icon: "≣", kind: "action", hint: "Recorded pane output", run: props.onLogs },
       { label: "Toggle overview (fleet glance)", icon: "▦", kind: "action", key: kb("overview"), run: () => toggleOverview() },

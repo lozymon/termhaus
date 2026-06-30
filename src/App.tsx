@@ -14,17 +14,13 @@ import WorkspaceRail from "./components/WorkspaceRail";
 import LayoutView from "./components/LayoutNode";
 import NewWorkspaceWizard from "./components/NewWorkspaceWizard";
 import Settings from "./components/Settings";
-import GitPanel from "./components/GitPanel";
-import DocsPanel from "./components/DocsPanel";
 import ShortcutsOverlay from "./components/ShortcutsOverlay";
 import SessionLogViewer from "./components/SessionLogViewer";
 import CommandPalette from "./components/CommandPalette";
 import {
   appState, init, startPersistence, flushPersistence,
   setOverview, toggleOverview, switchWorkspaceRelative, switchWorkspaceIndex,
-  activeWorkspace, activePanel, setActivePanel,
 } from "./stores/workspace";
-import type { DockedPanelKind } from "./stores/workspace";
 import { initTheme } from "./stores/theme";
 import { initSettings, settings } from "./stores/settings";
 import { applyGlobalHotkey } from "./lib/globalHotkey";
@@ -37,11 +33,6 @@ import "./App.css";
 export default function App() {
   const [wizardOpen, setWizardOpen] = createSignal(false);
   const [settingsOpen, setSettingsOpen] = createSignal(false);
-  // The docked right-side panel (Source Control / Docs) is now per-workspace state:
-  // these read the active workspace's `panel.open`, so switching workspaces shows only what was
-  // open in that one. See showPanel/togglePanel below and stores/workspace.ts.
-  const gitOpen = () => activePanel() === "git";
-  const docsOpen = () => activePanel() === "docs";
   const [shortcutsOpen, setShortcutsOpen] = createSignal(false);
   const [logsOpen, setLogsOpen] = createSignal(false);
   const [logPreselect, setLogPreselect] = createSignal<string | null>(null);
@@ -79,28 +70,6 @@ export default function App() {
   window.addEventListener("termhaus:new-workspace", openWizard);
   onCleanup(() => window.removeEventListener("termhaus:new-workspace", openWizard));
 
-  // The two right-side panels (Git / Docs) share one docked slot — only one shows at a
-  // time, and toggling the open one closes it (Frameless: dock right, never replace the grid; the
-  // stage just narrows and panes refit). `showPanel`/`togglePanel` keep that mutual exclusion.
-  const showPanel = (which: DockedPanelKind | null) => {
-    if (which !== null) setSettingsOpen(false); // opening a docked panel closes the Settings overlay
-    setActivePanel(which); // per-workspace: only the active workspace's slot changes
-  };
-  const togglePanel = (which: DockedPanelKind) => {
-    const isOpen = which === "git" ? gitOpen() : docsOpen();
-    showPanel(isOpen ? null : which);
-  };
-
-  // Ctrl+Shift+G from a focused pane toggles the Source Control (git diff) panel.
-  const openGit = () => togglePanel("git");
-  window.addEventListener("termhaus:source-control", openGit);
-  onCleanup(() => window.removeEventListener("termhaus:source-control", openGit));
-
-  // Ctrl+Shift+R from a focused pane toggles the Docs reader (mark a passage → send to a pane).
-  const openDocs = () => togglePanel("docs");
-  window.addEventListener("termhaus:docs", openDocs);
-  onCleanup(() => window.removeEventListener("termhaus:docs", openDocs));
-
   // Ctrl+Shift+? opens the keyboard cheat-sheet (toggle so a second press closes it).
   const openShortcuts = () => setShortcutsOpen((v) => !v);
   window.addEventListener("termhaus:shortcuts", openShortcuts);
@@ -116,8 +85,8 @@ export default function App() {
   onCleanup(() => window.removeEventListener("termhaus:view-session-log", openLogs));
 
   // Ctrl+Shift+, from a focused pane opens Settings — a centered overlay over the grid (like the
-  // command palette). Opening it closes any docked panel.
-  const openSettings = () => { showPanel(null); setSettingsOpen(true); };
+  // command palette).
+  const openSettings = () => { setSettingsOpen(true); };
   window.addEventListener("termhaus:settings", openSettings);
   onCleanup(() => window.removeEventListener("termhaus:settings", openSettings));
 
@@ -134,8 +103,6 @@ export default function App() {
   const GLOBAL_ACTIONS: Partial<Record<ActionId, () => void>> = {
     "new-workspace": () => setWizardOpen(true),
     "settings": () => openSettings(),
-    "source-control": () => togglePanel("git"),
-    "docs": () => togglePanel("docs"),
     "command-palette": () => setPaletteOpen((v) => !v),
     "overview": () => toggleOverview(),
     "shortcuts": () => setShortcutsOpen((v) => !v),
@@ -212,11 +179,7 @@ export default function App() {
     <div class="shell" classList={{ flush: flush() }}>
       <TitleBar
         onSettings={() => openSettings()}
-        onGit={() => togglePanel("git")}
-        onDocs={() => togglePanel("docs")}
         onShortcuts={() => setShortcutsOpen(true)}
-        gitOn={gitOpen}
-        docsOn={docsOpen}
         settingsOn={settingsOpen}
         paletteOn={paletteOpen}
       />
@@ -235,16 +198,6 @@ export default function App() {
           </Show>
         </div>
       </div>
-      {/* The right-side docked panels — flex siblings of .stage, so opening one narrows the grid
-          (panes refit via their ResizeObserver) rather than covering it. Mutually exclusive. */}
-      {/* Keyed on the active workspace so switching between two workspaces that *both* have a
-          panel open remounts it against the new workspace (each carries its own source/state). */}
-      <Show when={gitOpen() && activeWorkspace()} keyed>
-        {(_ws) => <GitPanel onClose={() => showPanel(null)} />}
-      </Show>
-      <Show when={docsOpen() && activeWorkspace()} keyed>
-        {(_ws) => <DocsPanel onClose={() => showPanel(null)} />}
-      </Show>
       </div>
       <Show when={wizardOpen()}>
         <NewWorkspaceWizard onClose={() => setWizardOpen(false)} />
@@ -263,8 +216,6 @@ export default function App() {
           onClose={() => setPaletteOpen(false)}
           onNewWorkspace={() => setWizardOpen(true)}
           onSettings={() => openSettings()}
-          onGit={() => showPanel("git")}
-          onDocs={() => showPanel("docs")}
           onShortcuts={() => setShortcutsOpen(true)}
           onLogs={() => { setLogPreselect(null); setLogsOpen(true); }}
         />

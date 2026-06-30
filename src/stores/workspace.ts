@@ -15,34 +15,12 @@ import { loadState, saveState } from "../lib/persist";
 import { countLive } from "../lib/paneRegistry";
 import { settings } from "./settings";
 
-/** The mutually-exclusive right-side docked panels (one slot, one open at a time). */
-export type DockedPanelKind = "git" | "docs";
-
 /**
- * Per-workspace state for the docked side panel. Lets each workspace carry its own Source
- * Control / Docs: opening one in workspace A leaves workspace B untouched, and the
- * source folder is captured from the active terminal *at open time* (so it stays pinned to
- * the folder you opened against, even if you later cd or focus elsewhere). Ephemeral.
- */
-export interface DockedPanelState {
-  /** Which panel is open in this workspace, or null for none. */
-  open: DockedPanelKind | null;
-  /** Source folder captured when Source Control was opened ("" until first opened). */
-  gitCwd: string;
-  /** Source folder captured when the Docs reader was opened ("" until first opened). */
-  docsCwd: string;
-}
-
-const freshPanel = (): DockedPanelState => ({ open: null, gitCwd: "", docsCwd: "" });
-
-/**
- * A workspace plus its ephemeral UI state (focus/zoom/panel — not persisted).
- * `panel` is this workspace's docked side-panel (Source Control / Docs) state.
+ * A workspace plus its ephemeral UI state (focus/zoom — not persisted).
  */
 export interface WorkspaceUI extends Workspace {
   focused: PaneId | null;
   zoomed: PaneId | null;
-  panel: DockedPanelState;
 }
 
 /** A recently-used working folder + its remembered terminal count (for the wizard). */
@@ -130,7 +108,7 @@ function buildWorkspace(opts: NewWorkspaceOpts): WorkspaceUI {
   // Faithful path: rebuild a saved tree verbatim (preset relaunch / duplicate), fresh PaneIds.
   if (opts.tree && opts.panes) {
     const { tree, panes } = cloneTreeWithFreshPanes(opts.tree, opts.panes);
-    return { id: nextWsId(), name: opts.name, cwd: opts.cwd, tree, panes, focused: firstLeaf(tree), zoomed: null, panel: freshPanel() };
+    return { id: nextWsId(), name: opts.name, cwd: opts.cwd, tree, panes, focused: firstLeaf(tree), zoomed: null };
   }
   const panes: Record<PaneId, PaneSpec> = {};
   let i = 0;
@@ -149,7 +127,7 @@ function buildWorkspace(opts: NewWorkspaceOpts): WorkspaceUI {
     return { kind: "leaf", paneId };
   };
   const tree = buildBalancedTree(Math.max(1, opts.paneCount), makeLeaf);
-  return { id: nextWsId(), name: opts.name, cwd: opts.cwd, tree, panes, focused: firstLeaf(tree), zoomed: null, panel: freshPanel() };
+  return { id: nextWsId(), name: opts.name, cwd: opts.cwd, tree, panes, focused: firstLeaf(tree), zoomed: null };
 }
 
 // Starts empty; `init()` (called once at startup) hydrates from disk or seeds a default
@@ -382,21 +360,6 @@ export function switchWorkspace(id: string) {
   setApp("activeId", id);
 }
 
-/** Which docked side panel is open in the active workspace (null = none). */
-export const activePanel = (): DockedPanelKind | null => activeWorkspace()?.panel.open ?? null;
-
-/** Open `kind` (or null to close) as the active workspace's docked panel — mutually exclusive. */
-export function setActivePanel(kind: DockedPanelKind | null) {
-  const i = wsIdxById(app.activeId);
-  if (i >= 0) setApp("workspaces", i, "panel", "open", kind);
-}
-
-/** Pin the source folder captured (from the active terminal) when Source Control / Docs opened. */
-export function setPanelCwd(kind: "git" | "docs", cwd: string) {
-  const i = wsIdxById(app.activeId);
-  if (i >= 0) setApp("workspaces", i, "panel", kind === "git" ? "gitCwd" : "docsCwd", cwd);
-}
-
 /** Jump directly to the workspace at position `i` (0-based) — Ctrl+Shift+1…9. No-op out of range. */
 export function switchWorkspaceIndex(i: number) {
   if (i >= 0 && i < app.workspaces.length) setApp("activeId", app.workspaces[i].id);
@@ -419,7 +382,6 @@ export function duplicateWorkspace(id: string): string | undefined {
     panes,
     focused: firstLeaf(tree),
     zoomed: null,
-    panel: freshPanel(),
   };
   batch(() => {
     setApp("workspaces", app.workspaces.length, ws);
@@ -554,7 +516,7 @@ export async function init() {
         // Resume the id counters past anything persisted so new panes/workspaces don't collide.
         idSeq = Math.max(0, ...allPaneIds(data.workspaces));
         wsSeq = Math.max(0, ...data.workspaces.map((w) => parseInt(w.id.replace(/\D/g, ""), 10) || 0));
-        const workspaces = data.workspaces.map((w) => ({ ...w, focused: firstLeaf(w.tree), zoomed: null, panel: freshPanel() }));
+        const workspaces = data.workspaces.map((w) => ({ ...w, focused: firstLeaf(w.tree), zoomed: null }));
         const activeId = workspaces.some((w) => w.id === data.activeId) ? data.activeId : workspaces[0].id;
         setApp({ workspaces, activeId });
         restored = true;

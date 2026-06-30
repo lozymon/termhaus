@@ -27,8 +27,6 @@ const CURSORS: CursorStyle[] = ["block", "bar", "underline"];
 const NAV_ITEMS: { id: NavItemId; label: string; hint: string }[] = [
   { id: "overview", label: "Overview", hint: "fleet glance" },
   { id: "palette", label: "Palette", hint: "command palette" },
-  { id: "git", label: "Git", hint: "source control" },
-  { id: "docs", label: "Docs", hint: "markdown reader" },
 ];
 
 type TabId = "appearance" | "terminal" | "keys";

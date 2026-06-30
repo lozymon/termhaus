@@ -1,9 +1,7 @@
 mod capture;
 mod control;
 mod control_transport;
-mod docs;
 mod editor;
-mod git;
 mod logs;
 mod pty;
 mod tray;
@@ -53,7 +51,7 @@ fn pty_kill(mgr: State<PtyManager>, id: u32) -> Result<(), String> {
 
 // Polled per visible pane every ~2s (Terminal.tsx refreshLoc). `async` so Tauri runs these on
 // its worker pool instead of the main (WebKitGTK UI) thread — a synchronous command blocks the
-// render thread, and 12 panes each doing a /proc read + git spawn at once froze the UI for 1-2s.
+// render thread, and 12 panes each doing a /proc read at once froze the UI for 1-2s.
 // The bodies don't `.await`; `async` here only relocates them off the UI thread.
 #[tauri::command]
 async fn pty_cwd(mgr: State<'_, PtyManager>, id: u32) -> Result<Option<String>, String> {
@@ -121,11 +119,6 @@ pub fn run() {
             control::pane_cmd_reply,
             editor::open_editor,
             capture::capture_region,
-            git::git_status,
-            git::git_branch,
-            git::git_diff,
-            docs::list_docs,
-            docs::read_doc,
             logs::list_logs,
             logs::read_log_tail,
             workspace::state_save,

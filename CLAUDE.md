@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-**Implemented and shipping** (v0.5.0). The milestone plan (M0–M11) in [PLAN.md](PLAN.md) is done, and the whole [docs/IDEAS.md](docs/IDEAS.md) follow-up roadmap is shipped too: agent-pushed status/attention signals (`th status`/`th attention`), the docs reader, the agent-integration arc (`th hooks` + the `th-mcp` MCP server), workspace polish (Ctrl+Shift+1–9, duplicate, shortcuts cheat-sheet, per-agent tint), faithful-layout presets, overview drag-reorder, the session-log viewer, and the bigger bets (system tray + global hotkey). Multi-window tear-off is merged and shipping on `main` (`src/lib/detach.ts`, `DetachedPane.tsx`, the `pty_retarget` command). **The human broadcast bar was removed 2026-06-25** as unused (multi-agent work is cross-project); one-to-many fan-out is now agent-driven only, via `th broadcast` / the `th-mcp` `broadcast` tool — see [docs/ASSESSMENT.md](docs/ASSESSMENT.md).
+**Implemented and shipping** (v0.5.0). The milestone plan (M0–M11) in [PLAN.md](PLAN.md) is done, and the whole [docs/IDEAS.md](docs/IDEAS.md) follow-up roadmap is shipped too: agent-pushed status/attention signals (`th status`/`th attention`), the agent-integration arc (`th hooks` + the `th-mcp` MCP server), workspace polish (Ctrl+Shift+1–9, duplicate, shortcuts cheat-sheet, per-agent tint), faithful-layout presets, overview drag-reorder, the session-log viewer, and the bigger bets (system tray + global hotkey). Multi-window tear-off is merged and shipping on `main` (`src/lib/detach.ts`, `DetachedPane.tsx`, the `pty_retarget` command). **The human broadcast bar was removed 2026-06-25** as unused (multi-agent work is cross-project); one-to-many fan-out is now agent-driven only, via `th broadcast` / the `th-mcp` `broadcast` tool — see [docs/ASSESSMENT.md](docs/ASSESSMENT.md). **The Git (Source Control) panel and the Docs reader were removed 2026-06-29** to refocus Termhaus on being the terminal layer — the ADE role (git, code, docs context) now lives in the companion "loom" app; see [ADR-0008](docs/adr/0008-narrow-to-terminal-loom-owns-ade.md).
 
 Treat **PLAN.md** (design/milestones) and the **ADRs** under [docs/adr/](docs/adr/) as the source of truth for the *why*; update them if the design changes. IDEAS.md tracks the post-v1 feature log (each item has a "✅ Built as" note).
 
@@ -18,7 +18,7 @@ Termhaus — a Linux-first desktop "control room" of real terminals. You run man
 
 - `npm run tauri dev` — run the app in development (opens the Tauri window, starts Vite + the Rust shell).
 - `npm run build` — Vite production build of the frontend (`tsc`-checked via the build; run `npx tsc --noEmit` for a standalone typecheck).
-- `npm test` — the Vitest unit suite (pure-logic libs: layout, grid, matching, agents, markdown, ansi, keybindings, gitClient).
+- `npm test` — the Vitest unit suite (pure-logic libs: layout, grid, matching, agents, ansi, keybindings, paneControl, ptyClient).
 - Rust lives in `src-tauri/`: `cargo check`, `cargo clippy`, and `cargo fmt --check` (CI enforces rustfmt). The crate builds the app plus two extra binaries — `th` (the inter-pane control CLI, ADR-0007) and `th-mcp` (the MCP server) — both std + serde_json only, sharing the socket client in `src-tauri/src/control_sock.rs`.
 
 ## Architecture — the non-obvious decisions
@@ -45,11 +45,11 @@ These cross-cutting rules shape nearly every file. Read them before touching the
 
 ## Key files (all exist — this is the map, not a to-do)
 
-**Rust (`src-tauri/src/`):** `pty.rs` (`PtyManager`: spawn, reader+coalescing-flush threads, write/resize/kill/retarget, reaping) · `lib.rs` (command handlers + Channel wiring + tray/plugin setup) · `control.rs` + `bin/th.rs` (inter-pane bus: socket relay + the `th` CLI, ADR-0007) · `bin/th-mcp.rs` (MCP server) · `control_sock.rs` (socket client shared by both bins) · `tray.rs` (system tray) · `git.rs` · `docs.rs` · `logs.rs` · `capture.rs` · `workspace.rs` (JSON persistence).
+**Rust (`src-tauri/src/`):** `pty.rs` (`PtyManager`: spawn, reader+coalescing-flush threads, write/resize/kill/retarget, reaping) · `lib.rs` (command handlers + Channel wiring + tray/plugin setup) · `control.rs` + `bin/th.rs` (inter-pane bus: socket relay + the `th` CLI, ADR-0007) · `bin/th-mcp.rs` (MCP server) · `control_sock.rs` (socket client shared by both bins) · `tray.rs` (system tray) · `logs.rs` · `capture.rs` · `workspace.rs` (JSON persistence).
 
-**Frontend (`src/`):** `ipc/protocol.ts` (shared types + command names) · `lib/ptyClient.ts` (bind xterm to the output Channel) · `lib/paneControl.ts` (bus routing) · `lib/detach.ts` (multi-window, branch) · `stores/workspace.ts` (normalized Workspaces/trees/panes/focus/zoom) · `stores/{activity,settings,theme}.ts` · `components/` — `Terminal`, `LayoutNode`, `WorkspaceRail`, `NewWorkspaceWizard`, `GitPanel`, `DocsPanel`, `SessionLogViewer`, `ShortcutsOverlay`, `CommandPalette`, `Settings`, `TitleBar`.
+**Frontend (`src/`):** `ipc/protocol.ts` (shared types + command names) · `lib/ptyClient.ts` (bind xterm to the output Channel) · `lib/paneControl.ts` (bus routing) · `lib/detach.ts` (multi-window, branch) · `stores/workspace.ts` (normalized Workspaces/trees/panes/focus/zoom) · `stores/{activity,settings,theme}.ts` · `components/` — `Terminal`, `LayoutNode`, `WorkspaceRail`, `NewWorkspaceWizard`, `SessionLogViewer`, `ShortcutsOverlay`, `CommandPalette`, `Settings`, `TitleBar`.
 
-Most new work follows an existing pattern — new side panels mirror `GitPanel.tsx`; new shortcuts add an action to `lib/keybindings.ts` and wire both dispatch maps (App global + Terminal); new bus ops extend `ControlRequest` in `protocol.ts`, handle in `paneControl.ts`, and add a `th`/`th-mcp` front-end.
+Most new work follows an existing pattern — overlay/side panels mirror `SessionLogViewer.tsx`; new shortcuts add an action to `lib/keybindings.ts` and wire both dispatch maps (App global + Terminal); new bus ops extend `ControlRequest` in `protocol.ts`, handle in `paneControl.ts`, and add a `th`/`th-mcp` front-end.
 
 ## Resolved risk (kept for context)
 

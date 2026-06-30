@@ -36,6 +36,7 @@ with a better tool the user could just run _in a pane_:
   - ✅ **📂 change-folder button** to re-point the scanned root (was pinned at
     first-open with no way to change it).
   - ✅ Rust walk descends **4 levels** (was 2) so deeper docs appear.
+  - **Removed 2026-06-29** (see [ADR-0008](adr/0008-narrow-to-terminal-loom-owns-ade.md)) — the markdown reader now lives in the companion app "loom"; Termhaus narrows to the terminal multiplexer. Notes above are kept as history.
 - ~~**GitPanel** (read-only) — Genuinely useful, but read-only git competes with
   `lazygit` in a pane, which does vastly more.~~ **Kept and deepened 2026-06-25.**
   The "send a diff region to the agent" gesture is precisely what `lazygit`
@@ -50,6 +51,7 @@ with a better tool the user could just run _in a pane_:
   - ✅ **Review queue** — ＋ queues comments; a review bar lists them as removable
     chips and **Send review ▸** sends them all as one numbered message.
   - Still strictly read-only.
+  - **Removed 2026-06-29** (see [ADR-0008](adr/0008-narrow-to-terminal-loom-owns-ade.md)) — read-only git review now lives in the companion app "loom"; Termhaus narrows to the terminal multiplexer. Notes above are kept as history.
 
 I'm not saying delete all three — I'm saying each one needs to earn its keep via
 a workflow that a pane _can't_ do, and right now that workflow is "drag text into

@@ -196,6 +196,8 @@ helper line, primary **Choose a layout** (accent r11) → launcher, secondary **
 
 ## Phase 5 — Side panels (Git / Preview / Docs)
 
+> **Note — Git and Docs panels removed 2026-06-29** (see [ADR-0008](adr/0008-narrow-to-terminal-loom-owns-ade.md)); the ADE role now lives in the companion app "loom" (Preview was already removed 2026-06-25). This phase is kept as historical record.
+
 **Files:** `GitPanel.tsx`, `PreviewPanel.tsx`, `DocsPanel.tsx` + `App.tsx` grid reflow.
 
 - Each = floating card, `--surface`, r14, panel shadow. Widths: Git 440px, Preview/Docs 480px.

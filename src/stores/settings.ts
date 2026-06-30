@@ -17,7 +17,7 @@ export type CursorStyle = "block" | "bar" | "underline";
 
 /** Top-bar nav items that can be shown/hidden from Settings (Settings itself is always shown
  *  so this config stays reachable). */
-export type NavItemId = "overview" | "palette" | "git" | "docs";
+export type NavItemId = "overview" | "palette";
 
 export interface Settings {
   // ---- Appearance (terminal text) ----
@@ -53,9 +53,6 @@ export interface Settings {
   globalHotkey: string;
   /** Close button hides to the tray instead of quitting (Quit from the tray menu still exits). */
   closeToTray: boolean;
-  // ---- Docs reader ----
-  /** Show the Docs panel rendered (preview) vs. raw markdown text; persists across opens. */
-  docsPreview: boolean;
   // ---- Session logging ----
   /** Append each pane's raw output to a per-pane file under <config>/logs/ (opt-in). */
   sessionLogging: boolean;
@@ -69,14 +66,6 @@ export interface Settings {
   railWidth: number;
   /** Collapse the workspace rail to a slim icon strip (toggle in the rail header). */
   railCollapsed: boolean;
-  /** Width (px) of the docked Source Control panel; drag its left edge to resize. */
-  gitWidth: number;
-  /** Height (px) of the Source Control changes list; drag the divider below it to resize. */
-  gitListHeight: number;
-  /** Width (px) of the docked Docs panel; drag its left edge to resize. */
-  docsWidth: number;
-  /** Height (px) of the Docs file list; drag the divider below it to resize. */
-  docsListHeight: number;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -95,16 +84,11 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyOnAttention: false,
   globalHotkey: "CommandOrControl+Alt+Backquote",
   closeToTray: false,
-  docsPreview: true,
   sessionLogging: false,
   keybindings: { ...DEFAULT_KEYBINDINGS },
-  navVisible: { overview: true, palette: true, git: true, docs: true },
+  navVisible: { overview: true, palette: true },
   railWidth: 212,
   railCollapsed: false,
-  gitWidth: 440,
-  gitListHeight: 180,
-  docsWidth: 480,
-  docsListHeight: 180,
 };
 
 const [settings, setStore] = createStore<Settings>({ ...DEFAULT_SETTINGS });

@@ -124,7 +124,7 @@ selection tint; the selection is sent as **raw markdown** (`rel:lines` + a ```ma
 optional instruction) via bracketed paste. A **"to targets"** toggle fans the passage to
 `broadcastTargets(ws)` instead of just the focused pane ("all of you read this") *(the broadcast bar has since been removed 2026-06-25; `broadcastTargets(ws)` now resolves to all live panes for the `th broadcast` path)*; **"Open file…"**
 uses the native dialog for files outside the folder. Opened from the title bar's 📖 **Docs** button,
-the command palette, or **Ctrl+Shift+R** (new `docs` keybinding action).
+the command palette, or **Ctrl+Shift+R** (new `docs` keybinding action). — **Removed 2026-06-29 (see [ADR-0008](adr/0008-narrow-to-terminal-loom-owns-ade.md)); the docs reader is now owned by the companion app "loom". Notes below are kept as history.**
 
 A **Raw / Preview** toggle (persisted as `settings.docsPreview`) now covers *both* rendering
 options: Raw is the line-precise grid; Preview renders the markdown where each block carries its
