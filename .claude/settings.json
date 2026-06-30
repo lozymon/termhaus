@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "th attention"
+            "command": "[ -n \"$TERMHAUS_PANE\" ] && th attention 2>/dev/null || true"
           }
         ]
       }
@@ -37,7 +37,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "th status"
+            "command": "[ -n \"$TERMHAUS_PANE\" ] && th status idle 2>/dev/null || true"
           }
         ]
       }
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "th status working"
+            "command": "[ -n \"$TERMHAUS_PANE\" ] && th status working 2>/dev/null || true"
           }
         ]
       }
