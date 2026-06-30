@@ -96,3 +96,21 @@ inbound `send`/`broadcast`/`spawn` unless marked controllable). Tracked, not bui
   same event/reply contract; out of scope for the Linux-first v1.
 - If the webview isn't listening yet (startup race) or no pane matches, the request times
   out / returns an error and `th` exits non-zero — it never hangs a pane indefinitely.
+
+## Update (2026-06-29): one binary, three faces
+
+The `th` CLI and `th-mcp` MCP server were originally **separate cargo binaries** built beside
+the app. They're now **subcommands of the single `termhaus` binary** (mirroring loom):
+`main.rs` dispatches on the first arg — `termhaus mcp` runs the MCP server, a control
+subcommand (`termhaus list`/`send`/`spawn`/…) runs the CLI, anything else opens the GUI. The
+CLI/MCP arms return before any Tauri/WebKitGTK setup, so invoking `termhaus` inside a pane
+stays cheap. The former `bin/th.rs`/`bin/th-mcp.rs` are now lib modules `cli.rs`/`mcp.rs`,
+sharing `control_sock.rs` directly (no more `#[path]` includes).
+
+Consequences for this ADR's mechanics:
+- The injected env is now `TERMHAUS_SOCK` / `TERMHAUS_PANE` / **`TERMHAUS_BIN`** (the app's own
+  exe path); the old `TERMHAUS_CLI` / `TERMHAUS_MCP` are gone. The binary's dir is prepended to
+  the child `PATH`, so `termhaus` and `termhaus mcp` resolve inside a pane.
+- The agent-facing command changed from `th <cmd>` to `termhaus <cmd>`, and `.mcp.json` launches
+  `termhaus mcp` (via `$TERMHAUS_BIN`). The relay protocol and routing are unchanged.
+- The CLI/MCP faces still depend only on std + serde_json; the relay still parses nothing.

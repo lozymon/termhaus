@@ -4,8 +4,8 @@ version = "0.11.0"
 description = "A control room of live terminals — a GUI terminal multiplexer for driving fleets of CLI agents"
 authors = ["Termhaus"]
 edition = "2021"
-# Two binaries now (the app + the `th` control CLI, ADR-0007); name the app as the default
-# so `cargo run` / `tauri dev` stay unambiguous.
+# One binary, three faces: the GUI app, the `termhaus <cmd>` control CLI, and the `termhaus mcp`
+# server are all the same executable, dispatched on the first arg in main.rs (ADR-0007).
 default-run = "termhaus"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -16,13 +16,6 @@ default-run = "termhaus"
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "termhaus_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
-
-# The inter-pane control CLI (ADR-0007), built beside the app binary so it lands on the
-# child PATH we inject into each pane. std + serde_json only on Linux; on Windows it also
-# pulls `windows-sys` (below) via the shared `control_transport` for the named-pipe bus.
-[[bin]]
-name = "th"
-path = "src/bin/th.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -41,7 +34,7 @@ tauri-plugin-notification = "2"
 
 # Windows-only: the inter-pane control bus (M7.5) uses named pipes via raw Win32 FFI in
 # `control_transport.rs`. Target-gated, so the Linux build pulls nothing new and stays
-# byte-identical. Shared by the app lib and the `th` / `th-mcp` bins (via `#[path]`).
+# byte-identical. Used by the `termhaus`/`termhaus mcp` subcommands (now lib modules).
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",

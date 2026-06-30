@@ -1,12 +1,9 @@
 //! Shared client for the Termhaus control bus (ADR-0007): connect to `$TERMHAUS_SOCK`, write one
 //! JSON request line, read one JSON response line. The actual transport (unix-domain socket today;
 //! a Windows named pipe at M7.5) lives behind `control_transport`, so this stays platform-neutral.
-//! Both front-ends to the bus — the `th` CLI and the `th-mcp` MCP server — use it, so they're two
-//! faces of the same relay (IDEAS.md's agent-integration arc). Std + serde_json only (no Tauri lib).
-//!
-//! Loose module under `src/` (not declared in lib.rs), pulled into each bin with `#[path = …]`
-//! (alongside `control_transport`), so Cargo doesn't compile it as its own binary the way it would
-//! for a file in `src/bin/`.
+//! Both faces of the bus — the `termhaus` CLI and the `termhaus mcp` MCP server (now subcommands
+//! of the one binary, see main.rs) — use it, so they're two faces of the same relay (IDEAS.md's
+//! agent-integration arc). Std + serde_json only (no Tauri lib).
 
 use std::env;
 

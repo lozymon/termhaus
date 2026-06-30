@@ -63,26 +63,13 @@ struct ControlEvent {
     request: String,
 }
 
-/// Absolute path to the `th` CLI, which sits beside the running app binary in `target/…`
-/// (dev) or the install bindir (packaged). `None` if it isn't built yet — the bus still
-/// works, callers just have to invoke the socket directly.
-pub fn cli_path() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    // `EXE_SUFFIX` is ".exe" on Windows, "" on Unix — the sibling binary is `th.exe` there.
-    let cand = exe
-        .parent()?
-        .join(format!("th{}", std::env::consts::EXE_SUFFIX));
-    cand.exists().then_some(cand)
-}
-
-/// Absolute path to the `th-mcp` MCP server, beside the app binary like `th`. `None` if it isn't
-/// built. Exposed to pane children as `$TERMHAUS_MCP` so an agent's `.mcp.json` can point at it.
-pub fn mcp_path() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let cand = exe
-        .parent()?
-        .join(format!("th-mcp{}", std::env::consts::EXE_SUFFIX));
-    cand.exists().then_some(cand)
+/// Absolute path to the running `termhaus` binary. The control CLI and the MCP server are
+/// subcommands of it now (`termhaus <cmd>`, `termhaus mcp`), so this is the single thing panes
+/// need on PATH and in `$TERMHAUS_BIN` (e.g. for an agent's `.mcp.json` to launch `termhaus mcp`).
+/// `None` only if the OS can't resolve our own executable path, in which case the bus still works
+/// via the raw socket.
+pub fn termhaus_bin() -> Option<PathBuf> {
+    std::env::current_exe().ok()
 }
 
 /// Bind the socket and start accepting on a background thread.

@@ -1,8 +1,11 @@
 mod capture;
+pub mod cli;
 mod control;
+mod control_sock;
 mod control_transport;
 mod editor;
 mod logs;
+pub mod mcp;
 mod pty;
 mod tray;
 mod workspace;

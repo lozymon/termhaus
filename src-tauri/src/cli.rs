@@ -1,21 +1,21 @@
-//! `th` — the Termhaus inter-pane control CLI (ADR-0007). Runs *inside* a pane and talks to
+//! `termhaus` — the Termhaus inter-pane control CLI (ADR-0007). Runs *inside* a pane and talks to
 //! the running app over the unix socket at `$TERMHAUS_SOCK`, so an agent (or you) can list
 //! panes, send text/commands to a named pane, or spawn a new one.
 //!
-//!   th list                          # show every pane: name, live/dead, workspace
-//!   th send Cleo claude "do the thing"   # type into pane "Cleo" and press Enter
-//!   th send Cleo --no-enter ls       # type without the trailing newline
-//!   th send Cleo                     # no text → reads stdin (pipe-friendly)
-//!   th spawn --name Cleo --cwd /repo claude   # open a new pane running `claude`
-//!   th read Cleo -n 100              # capture Cleo's last 100 scrollback lines
-//!   th broadcast "run the tests"     # send to every live pane in the active workspace
-//!   th focus Cleo                    # switch to Cleo's workspace and focus it
-//!   th attention                     # light this pane's "needs you" border (clears on focus)
-//!   th attention Cleo --clear        # drop pane Cleo's attention border
-//!   th status "running tests"        # set this pane's status label (shown in its title/overview)
-//!   th status Cleo --clear           # clear pane Cleo's status label
-//!   th hooks --install               # wire a Claude Code agent's events to attention/status
-//!   th hooks                         # print the recommended hooks profile (no changes made)
+//!   termhaus list                          # show every pane: name, live/dead, workspace
+//!   termhaus send Cleo claude "do the thing"   # type into pane "Cleo" and press Enter
+//!   termhaus send Cleo --no-enter ls       # type without the trailing newline
+//!   termhaus send Cleo                     # no text → reads stdin (pipe-friendly)
+//!   termhaus spawn --name Cleo --cwd /repo claude   # open a new pane running `claude`
+//!   termhaus read Cleo -n 100              # capture Cleo's last 100 scrollback lines
+//!   termhaus broadcast "run the tests"     # send to every live pane in the active workspace
+//!   termhaus focus Cleo                    # switch to Cleo's workspace and focus it
+//!   termhaus attention                     # light this pane's "needs you" border (clears on focus)
+//!   termhaus attention Cleo --clear        # drop pane Cleo's attention border
+//!   termhaus status "running tests"        # set this pane's status label (shown in its title/overview)
+//!   termhaus status Cleo --clear           # clear pane Cleo's status label
+//!   termhaus hooks --install               # wire a Claude Code agent's events to attention/status
+//!   termhaus hooks                         # print the recommended hooks profile (no changes made)
 //!
 //! Pure std + serde_json (already a workspace dep): no protocol logic lives here or in Rust —
 //! the request is forwarded verbatim to the webview, which owns routing (src/ipc/protocol.ts).
@@ -28,14 +28,30 @@ use std::process::exit;
 
 use serde_json::{json, Value};
 
-// The bus client, shared with the `th-mcp` MCP server (two front-ends, one bus). `control_sock`
-// frames requests; `control_transport` is the platform transport it connects over (UDS today).
-#[path = "../control_sock.rs"]
-mod control_sock;
-#[path = "../control_transport.rs"]
-mod control_transport;
+// The bus client, shared with the `termhaus mcp` MCP server (two faces, one bus): `control_sock`
+// frames requests over the platform transport (`control_transport`, UDS today). Both live in the
+// lib crate now, so we reach them through `crate::` rather than the old `#[path]` bin includes.
+use crate::control_sock;
 
-fn main() {
+/// Does `cmd` name a control-CLI subcommand? `main.rs` routes `termhaus <cmd>` to the CLI face;
+/// anything else (a bare `termhaus`, `termhaus <dir>`, `termhaus mcp`) is handled elsewhere.
+pub fn is_command(cmd: &str) -> bool {
+    matches!(
+        cmd,
+        "list"
+            | "send"
+            | "spawn"
+            | "read"
+            | "broadcast"
+            | "focus"
+            | "attention"
+            | "status"
+            | "hooks"
+    )
+}
+
+/// The control-CLI entry point (`termhaus <subcommand>`), invoked from `main.rs`.
+pub fn run() {
     let args: Vec<String> = env::args().skip(1).collect();
     if args.is_empty() || args[0] == "-h" || args[0] == "--help" {
         usage();
@@ -46,7 +62,7 @@ fn main() {
         match run_hooks(&args[1..]) {
             Ok(msg) => print!("{msg}"),
             Err(e) => {
-                eprintln!("th: {e}");
+                eprintln!("termhaus: {e}");
                 exit(1);
             }
         }
@@ -55,14 +71,14 @@ fn main() {
     let req = match build_request(&args) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("th: {e}");
+            eprintln!("termhaus: {e}");
             exit(2);
         }
     };
     let resp = match control_sock::send(&req) {
         Ok(r) => r,
         Err(e) => {
-            eprintln!("th: {e}");
+            eprintln!("termhaus: {e}");
             exit(1);
         }
     };
@@ -74,7 +90,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
         "list" => Ok(json!({ "op": "list" })),
 
         "send" => {
-            // th send <pane> [text...] [--no-enter]; no text → read stdin.
+            // termhaus send <pane> [text...] [--no-enter]; no text → read stdin.
             let mut enter = true;
             let mut positional: Vec<String> = Vec::new();
             for a in &args[1..] {
@@ -85,7 +101,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
                 }
             }
             if positional.is_empty() {
-                return Err("usage: th send <pane> <text...>  (or pipe text via stdin)".into());
+                return Err("usage: termhaus send <pane> <text...>  (or pipe text via stdin)".into());
             }
             let target = positional.remove(0);
             let text = if positional.is_empty() {
@@ -97,7 +113,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
         }
 
         "spawn" => {
-            // th spawn [--name N] [--cwd D] <command...>   (use `--` to end flag parsing)
+            // termhaus spawn [--name N] [--cwd D] <command...>   (use `--` to end flag parsing)
             let mut name: Option<String> = None;
             let mut cwd: Option<String> = None;
             let mut command: Vec<String> = Vec::new();
@@ -117,7 +133,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
                         break;
                     }
                     // The first non-flag token starts the command; the rest is taken verbatim
-                    // (including any dashes), so `th spawn worker claude --resume` works.
+                    // (including any dashes), so `termhaus spawn worker claude --resume` works.
                     s if command.is_empty() && s.starts_with("--") => {
                         return Err(format!("unknown flag '{s}' (put the command after `--`)"));
                     }
@@ -130,7 +146,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
             }
             let command = command.join(" ");
             if command.trim().is_empty() {
-                return Err("usage: th spawn [--name N] [--cwd D] <command...>".into());
+                return Err("usage: termhaus spawn [--name N] [--cwd D] <command...>".into());
             }
             let mut obj = json!({ "op": "spawn", "command": command });
             if let Some(n) = name {
@@ -143,7 +159,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
         }
 
         "read" => {
-            // th read <pane> [-n LINES]   — capture the tail of a pane's scrollback.
+            // termhaus read <pane> [-n LINES]   — capture the tail of a pane's scrollback.
             let mut lines: Option<u64> = None;
             let mut positional: Vec<String> = Vec::new();
             let mut i = 1;
@@ -159,7 +175,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
                 i += 1;
             }
             if positional.is_empty() {
-                return Err("usage: th read <pane> [-n LINES]".into());
+                return Err("usage: termhaus read <pane> [-n LINES]".into());
             }
             let mut obj = json!({ "op": "read", "target": positional.remove(0) });
             if let Some(n) = lines {
@@ -169,7 +185,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
         }
 
         "broadcast" => {
-            // th broadcast [--workspace W] [--no-enter] <text...>   (no text → read stdin)
+            // termhaus broadcast [--workspace W] [--no-enter] <text...>   (no text → read stdin)
             let mut enter = true;
             let mut workspace: Option<String> = None;
             let mut positional: Vec<String> = Vec::new();
@@ -198,12 +214,12 @@ fn build_request(args: &[String]) -> Result<Value, String> {
         }
 
         "focus" => {
-            let target = args.get(1).ok_or("usage: th focus <pane>")?;
+            let target = args.get(1).ok_or("usage: termhaus focus <pane>")?;
             Ok(json!({ "op": "focus", "target": target }))
         }
 
         "attention" => {
-            // th attention [pane] [--clear]   — raise (or drop) a pane's attention border.
+            // termhaus attention [pane] [--clear]   — raise (or drop) a pane's attention border.
             // No pane → the calling pane (from $TERMHAUS_PANE), so an agent can flag itself.
             let mut clear = false;
             let mut positional: Vec<String> = Vec::new();
@@ -216,7 +232,7 @@ fn build_request(args: &[String]) -> Result<Value, String> {
             }
             let target = if positional.is_empty() {
                 env::var("TERMHAUS_PANE").map_err(|_| {
-                    "no pane given and TERMHAUS_PANE not set — name a pane: th attention <pane>"
+                    "no pane given and TERMHAUS_PANE not set — name a pane: termhaus attention <pane>"
                         .to_string()
                 })?
             } else {
@@ -226,10 +242,10 @@ fn build_request(args: &[String]) -> Result<Value, String> {
         }
 
         "status" => {
-            // th status [pane] [text...|--clear]   — set a pane's short status label.
+            // termhaus status [pane] [text...|--clear]   — set a pane's short status label.
             // No pane → the calling pane (from $TERMHAUS_PANE), so an agent can label itself.
             // Empty text (or --clear) clears the label. A leading "--" ends flag parsing so a
-            // status that starts with a dash still works: th status -- --resuming.
+            // status that starts with a dash still works: termhaus status -- --resuming.
             let mut clear = false;
             let mut positional: Vec<String> = Vec::new();
             let mut i = 1;
@@ -245,13 +261,13 @@ fn build_request(args: &[String]) -> Result<Value, String> {
                 i += 1;
             }
             // We can't resolve pane names here (Rust is a pure relay), so we use a convention to
-            // tell "set my own status" from "set pane X's status", mirroring `th attention`:
+            // tell "set my own status" from "set pane X's status", mirroring `termhaus attention`:
             //   • --clear      → the (optional) lone positional is a pane name, else self.
             //   • one token + a calling pane → that token is the status text for *this* pane.
             //   • two+ tokens  → first is the target pane, the rest is the status text.
             let self_pane = env::var("TERMHAUS_PANE").ok();
             let no_pane = || {
-                "no pane given and TERMHAUS_PANE not set — name a pane: th status <pane> <text>"
+                "no pane given and TERMHAUS_PANE not set — name a pane: termhaus status <pane> <text>"
                     .to_string()
             };
             let (target, text) = if clear {
@@ -293,7 +309,7 @@ fn handle_response(op: &str, resp: &Value) {
             .get("error")
             .and_then(Value::as_str)
             .unwrap_or("unknown error");
-        eprintln!("th: {err}");
+        eprintln!("termhaus: {err}");
         exit(1);
     }
     let data = resp.get("data");
@@ -390,7 +406,7 @@ fn print_list(data: Option<&Value>) {
     }
 }
 
-// ---- `th hooks` — bridge a Claude Code agent's lifecycle to the control bus (ADR-0007) ----
+// ---- `termhaus hooks` — bridge a Claude Code agent's lifecycle to the control bus (ADR-0007) ----
 //
 // The agent *pushes* its own state through the channel we already built, no output parsing
 // (ADR-0001): a "needs you" notification raises the amber border; a prompt-submit/turn-end pair
@@ -405,22 +421,22 @@ fn hook_profile() -> Vec<(&'static str, Value)> {
         // You submit a prompt → the pane shows "working" until the turn ends.
         (
             "UserPromptSubmit",
-            json!({ "hooks": [ { "type": "command", "command": "th status working" } ] }),
+            json!({ "hooks": [ { "type": "command", "command": "termhaus status working" } ] }),
         ),
         // Claude needs input / permission / went idle → raise the "needs you" border.
         (
             "Notification",
-            json!({ "matcher": "", "hooks": [ { "type": "command", "command": "th attention" } ] }),
+            json!({ "matcher": "", "hooks": [ { "type": "command", "command": "termhaus attention" } ] }),
         ),
         // Turn finished → clear the status label (attention is cleared by looking at the pane).
         (
             "Stop",
-            json!({ "hooks": [ { "type": "command", "command": "th status" } ] }),
+            json!({ "hooks": [ { "type": "command", "command": "termhaus status" } ] }),
         ),
     ]
 }
 
-/// The profile as a full `{ "hooks": { … } }` settings fragment (what `th hooks` prints).
+/// The profile as a full `{ "hooks": { … } }` settings fragment (what `termhaus hooks` prints).
 fn profile_value() -> Value {
     let mut hooks = serde_json::Map::new();
     for (event, entry) in hook_profile() {
@@ -473,7 +489,7 @@ fn run_hooks(args: &[String]) -> Result<String, String> {
             "--project" | "-p" => scope_user = false,
             other => {
                 return Err(format!(
-                "unknown flag '{other}' (usage: th hooks [--print] | --install [--user|--project])"
+                "unknown flag '{other}' (usage: termhaus hooks [--print] | --install [--user|--project])"
             ))
             }
         }
@@ -554,16 +570,16 @@ fn install_hooks(path: &Path) -> Result<String, String> {
 
 fn usage() {
     eprintln!(
-        "th — Termhaus inter-pane control\n\
+        "termhaus — Termhaus inter-pane control\n\
          usage:\n\
-        \x20 th list\n\
-        \x20 th send <pane> <text...> [--no-enter]\n\
-        \x20 th spawn [--name N] [--cwd D] <command...>\n\
-        \x20 th read <pane> [-n LINES]\n\
-        \x20 th broadcast [--workspace W] [--no-enter] <text...>\n\
-        \x20 th focus <pane>\n\
-        \x20 th attention [pane] [--clear]\n\
-        \x20 th status [pane] <text...> | [pane] --clear\n\
-        \x20 th hooks [--print] | --install [--user|--project]"
+        \x20 termhaus list\n\
+        \x20 termhaus send <pane> <text...> [--no-enter]\n\
+        \x20 termhaus spawn [--name N] [--cwd D] <command...>\n\
+        \x20 termhaus read <pane> [-n LINES]\n\
+        \x20 termhaus broadcast [--workspace W] [--no-enter] <text...>\n\
+        \x20 termhaus focus <pane>\n\
+        \x20 termhaus attention [pane] [--clear]\n\
+        \x20 termhaus status [pane] <text...> | [pane] --clear\n\
+        \x20 termhaus hooks [--print] | --install [--user|--project]"
     );
 }

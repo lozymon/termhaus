@@ -338,17 +338,19 @@ pub fn spawn(
     }
     apply_locale_env(&mut cmd);
 
-    // Inter-pane control bus discovery (ADR-0007): tell the child where the socket is, what
-    // its own pane is called (so an agent can address panes relative to itself), and make the
-    // `th` CLI directly invokable by exposing its path and prepending its dir to PATH.
+    // Inter-pane control bus discovery (ADR-0007): tell the child where the socket is, what its
+    // own pane is called (so an agent can address panes relative to itself), and make `termhaus`
+    // directly invokable by exposing its path and prepending its dir to PATH. The control CLI and
+    // the MCP server are subcommands of the same binary now (`termhaus <cmd>`, `termhaus mcp`), so
+    // one `$TERMHAUS_BIN` covers both — e.g. an agent's `.mcp.json` launches `termhaus mcp`.
     cmd.env("TERMHAUS_SOCK", crate::control::endpoint());
     if let Some(name) = name.as_deref().filter(|n| !n.is_empty()) {
         cmd.env("TERMHAUS_PANE", name);
     }
-    if let Some(cli) = crate::control::cli_path() {
-        cmd.env("TERMHAUS_CLI", cli.to_string_lossy().into_owned());
-        if let Some(dir) = cli.parent() {
-            // Prepend the CLI's dir to PATH using the platform list separator (`:` unix, `;` win).
+    if let Some(bin) = crate::control::termhaus_bin() {
+        cmd.env("TERMHAUS_BIN", bin.to_string_lossy().into_owned());
+        if let Some(dir) = bin.parent() {
+            // Prepend termhaus's dir to PATH using the platform list separator (`:` unix, `;` win).
             let existing = std::env::var_os("PATH").unwrap_or_default();
             let mut entries = vec![dir.to_path_buf()];
             entries.extend(std::env::split_paths(&existing));
@@ -356,11 +358,6 @@ pub fn spawn(
                 cmd.env("PATH", joined);
             }
         }
-    }
-    // The MCP server sits beside `th` (already on PATH above); also expose its absolute path so an
-    // agent's `.mcp.json` can reference `$TERMHAUS_MCP` directly (ADR-0007, IDEAS.md step C).
-    if let Some(mcp) = crate::control::mcp_path() {
-        cmd.env("TERMHAUS_MCP", mcp.to_string_lossy().into_owned());
     }
 
     let child = pair.slave.spawn_command(cmd).map_err(|e| e.to_string())?;

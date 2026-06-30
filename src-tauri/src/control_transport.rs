@@ -1,7 +1,7 @@
 //! Transport seam for the inter-pane control bus (ADR-0007 / PLAN M7.5).
 //!
 //! The line protocol — one JSON request line in, one JSON response line out — is platform-neutral
-//! and lives in `control.rs` (the relay) and `control_sock.rs` (the `th` / `th-mcp` client). This
+//! and lives in `control.rs` (the relay) and `control_sock.rs` (the `termhaus`/`termhaus mcp` client). This
 //! module is the ONLY place that knows *how the bytes travel*: a unix-domain socket today, behind
 //! `#[cfg(unix)]`. The Windows named-pipe transport (M7.5) drops in here behind `#[cfg(windows)]`
 //! by providing the same items — `Stream`, `Listener`, `endpoint`, `connect`, `bind`,

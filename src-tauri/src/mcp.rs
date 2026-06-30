@@ -1,27 +1,26 @@
-//! `th-mcp` — a Model Context Protocol server exposing the Termhaus control bus (ADR-0007) as
-//! agent *tools*. It's the model-native face of the same relay the `th` CLI drives: each tool
-//! builds the identical `ControlRequest` JSON and sends it over `$TERMHAUS_SOCK`, so the agent can
-//! "spawn a pane", "broadcast to a group", or "flag myself blocked" as first-class tools instead
-//! of shelling out (IDEAS.md's agent-integration arc, step C). No protocol logic lives here — the
-//! webview owns routing (src/ipc/protocol.ts); we only translate MCP ⇄ the bus.
+//! `termhaus mcp` — a Model Context Protocol server exposing the Termhaus control bus (ADR-0007)
+//! as agent *tools*. It's the model-native face of the same relay the `termhaus` CLI drives: each
+//! tool builds the identical `ControlRequest` JSON and sends it over `$TERMHAUS_SOCK`, so the agent
+//! can "spawn a pane", "broadcast to a group", or "flag myself blocked" as first-class tools
+//! instead of shelling out (IDEAS.md's agent-integration arc, step C). No protocol logic lives
+//! here — the webview owns routing (src/ipc/protocol.ts); we only translate MCP ⇄ the bus.
 //!
 //! Transport: newline-delimited JSON-RPC 2.0 over stdio (MCP stdio). stdout carries protocol
 //! messages ONLY — anything diagnostic goes to stderr (the same byte-protocol discipline as the
-//! PTY output channel). Pure std + serde_json; the socket client is shared with `th`.
+//! PTY output channel). Pure std + serde_json; the socket client is shared with the `termhaus` CLI.
 
 use std::env;
 use std::io::{self, BufRead, Write};
 
 use serde_json::{json, Value};
 
-// The bus client, shared with the `th` CLI (two front-ends, one bus). `control_sock` frames
-// requests; `control_transport` is the platform transport it connects over (UDS today).
-#[path = "../control_sock.rs"]
-mod control_sock;
-#[path = "../control_transport.rs"]
-mod control_transport;
+// The bus client, shared with the `termhaus` CLI (two faces, one bus): `control_sock` frames
+// requests over the platform transport (`control_transport`, UDS today). Both live in the lib
+// crate now, so we reach them through `crate::` rather than the old `#[path]` bin includes.
+use crate::control_sock;
 
-fn main() {
+/// The MCP-server entry point (`termhaus mcp`), invoked from `main.rs`. Speaks JSON-RPC 2.0 over stdio.
+pub fn run() {
     let stdin = io::stdin();
     let stdout = io::stdout();
     let mut out = stdout.lock();
