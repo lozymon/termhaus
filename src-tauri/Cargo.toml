@@ -1,6 +1,6 @@
 [package]
 name = "termhaus"
-version = "0.11.0"
+version = "0.12.0"
 description = "A control room of live terminals — a GUI terminal multiplexer for driving fleets of CLI agents"
 authors = ["Termhaus"]
 edition = "2021"

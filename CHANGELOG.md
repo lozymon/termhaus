@@ -4,6 +4,32 @@ All notable changes to Termhaus are documented here. The format is loosely based
 [Keep a Changelog](https://keepachangelog.com/), and the project follows semantic
 versioning.
 
+## [0.12.0] — 2026-06-30
+
+### Removed
+- **Git (Source Control) panel and Docs reader** — Termhaus is refocused on being the
+  terminal layer; the ADE role (git, code, and docs context) now lives in the companion
+  "loom" app. Both panels and their backends (`git.rs`/`docs.rs`, the diff/markdown clients,
+  the `markdown-it` dependency) are gone, the now-empty docked-panel system collapsed, and
+  the per-pane git-branch badge in the title bar was removed with it. See
+  [ADR-0008](docs/adr/0008-narrow-to-terminal-loom-owns-ade.md).
+
+### Changed
+- **One binary, three faces** — the separate `th` (control CLI) and `th-mcp` (MCP server)
+  binaries are folded into the single `termhaus` executable, dispatched on the first arg:
+  `termhaus <cmd>` drives the inter-pane bus, `termhaus mcp` runs the MCP server, anything
+  else opens the GUI. The in-pane command is now `termhaus …` (not `th`), MCP launches via
+  `termhaus mcp`, and panes get `$TERMHAUS_BIN` injected (replacing `$TERMHAUS_CLI` /
+  `$TERMHAUS_MCP`). See the [ADR-0007](docs/adr/0007-inter-pane-control-bus.md) amendment.
+  *External `.mcp.json` files that pointed at `th-mcp` should switch to `$TERMHAUS_BIN mcp`.*
+- **New brand icon set** — refreshed app icon, title-bar mark, and favicon (the terminal-grid
+  mark: cyan frame + orange prompt), replacing the leftover template logo.
+
+### Fixed
+- **Status/attention hooks no longer error outside a pane** — the `termhaus status`/`attention`
+  hooks are guarded on `$TERMHAUS_PANE`, so running an agent's Claude Code hooks outside a
+  Termhaus pane no longer spams errors on every turn.
+
 ## [0.11.0] — 2026-06-25
 
 ### Added
@@ -159,6 +185,7 @@ versioning.
   the left workspace rail, the Start→Layout→Agents wizard, broadcast input, and local
   JSON persistence of workspace intent.
 
+[0.12.0]: https://github.com/lozymon/termhaus/releases/tag/v0.12.0
 [0.8.0]: https://github.com/lozymon/termhaus/releases/tag/v0.8.0
 [0.7.0]: https://github.com/lozymon/termhaus/releases/tag/v0.7.0
 [0.6.0]: https://github.com/lozymon/termhaus/releases/tag/v0.6.0
